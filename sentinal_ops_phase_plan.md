@@ -261,7 +261,7 @@ graph LR
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Llama 3B accuracy < 90% on lending logs | Medium | High | Fine-tune on 500 real log samples in Phase 1; fallback to rule-based always available |
+| Llama 3B accuracy < 90% on production logs | Medium | High | Fine-tune on 500 real log samples in Phase 1; fallback to rule-based always available |
 | Bedrock cold-start latency spikes | Low | Medium | Measure P99 in Phase 6; switch to Claude Haiku for triage if needed |
 | Slack rate limiting during incident storm | Medium | Medium | Implement exponential backoff queue in Phase 3 |
 | PII leak through sanitizer | Low | Critical | Automated PII scanner in CI pipeline from Phase 1 onward |

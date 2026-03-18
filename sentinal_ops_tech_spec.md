@@ -26,7 +26,7 @@
 
 ### 1.1 Problem Statement
 
-High-stakes lending platforms suffer from long Mean Time to Resolution (MTTR) during incidents — averaging **45 minutes** due to manual investigation toil. Engineers must:
+High-stakes enterprise platforms suffer from long Mean Time to Resolution (MTTR) during incidents — averaging **45 minutes** due to manual investigation toil. Engineers must:
 
 1. Detect anomalies by watching dashboards or waiting for alerts
 2. Manually correlate errors with recent code changes
@@ -139,7 +139,7 @@ sequenceDiagram
     CW->>KF: Raw log stream (JSON)
     KF->>PE: Batch of log events
     PE->>PE: Semantic filter (95% noise dropped)
-    PE->>PE: PII sanitization (mask customer IDs, loan amounts)
+    PE->>PE: PII sanitization (mask customer IDs, transaction amounts)
     PE->>AC: Sanitized incident summary + severity (SEV-1/2)
 
     AC->>VDB: Query: similar past incidents + runbooks
@@ -295,9 +295,9 @@ graph LR
 
 **Llama 3B Prompt Template:**
 ```
-System: You are a log anomaly classifier for a lending platform.
+System: You are a log anomaly classifier for a production environment.
 Classify the following log batch as one of: [NORMAL, SEV1_CRITICAL, SEV2_HIGH, SEV3_LOW].
-Only flag SEV1 for: 5xx errors on loan-disbursal, repayment, or KYC endpoints.
+Only flag SEV1 for: 5xx errors on auth, payment, or core endpoints.
 Respond with JSON only: {"classification": "...", "confidence": 0.0-1.0, "reason": "..."}
 
 User: [LOG BATCH - max 2000 tokens]
@@ -306,8 +306,8 @@ User: [LOG BATCH - max 2000 tokens]
 **PII Sanitization Rules:**
 | Pattern | Action |
 |---|---|
-| Customer ID (UUID format in loan context) | Replace with `[CUST_ID_REDACTED]` |
-| Loan amount (numeric after `amount:`, `loan_amt:`) | Replace with `[AMOUNT_REDACTED]` |
+| Customer ID (UUID format) | Replace with `[CUST_ID_REDACTED]` |
+| Transaction amount (numeric after `amount:`, `tx_amt:`) | Replace with `[AMOUNT_REDACTED]` |
 | PAN / Aadhaar (Indian ID formats) | Replace with `[GOV_ID_REDACTED]` |
 | Email addresses | Replace with `[EMAIL_REDACTED]` |
 | Phone numbers (10-digit Indian format) | Replace with `[PHONE_REDACTED]` |
@@ -318,7 +318,7 @@ User: [LOG BATCH - max 2000 tokens]
   "incident_id": "uuid-v4",
   "severity": "SEV1_CRITICAL",
   "confidence": 0.94,
-  "affected_service": "loan-disbursal-api",
+  "affected_service": "checkout-api",
   "error_pattern": "NullPointerException in PaymentGateway.process()",
   "error_rate_pct": 12.4,
   "window_start": "2026-03-18T13:30:00Z",
@@ -362,7 +362,7 @@ async def run_reasoning_loop(incident: IncidentSummary) -> RCAResult:
 
 **Bedrock Prompt Design:**
 ```
-System: You are SentinelOps, a Senior SRE agent for a lending platform.
+System: You are SentinelOps, a Senior SRE agent.
 You have been given an incident report, historical context, and recent Git activity.
 Your job is to produce a structured RCA in JSON.
 
@@ -398,7 +398,7 @@ Generate a complete RCA JSON.
   "blocks": [
     {
       "type": "header",
-      "text": { "type": "plain_text", "text": "🚨 SEV-1 Incident — loan-disbursal-api" }
+      "text": { "type": "plain_text", "text": "🚨 SEV-1 Incident — checkout-api" }
     },
     {
       "type": "section",
@@ -406,7 +406,7 @@ Generate a complete RCA JSON.
         { "type": "mrkdwn", "text": "*Incident ID:*\nSOP-2026-0318-001" },
         { "type": "mrkdwn", "text": "*Confidence:*\n94%" },
         { "type": "mrkdwn", "text": "*Causal Commit:*\n`a3f9c12` — PaymentGateway null-check removed" },
-        { "type": "mrkdwn", "text": "*Repo:*\nlending-core (by @john.doe)" }
+        { "type": "mrkdwn", "text": "*Repo:*\nbackend-core (by @john.doe)" }
       ]
     },
     {
@@ -647,7 +647,7 @@ List incidents for Dashboard.
     {
       "id": "uuid",
       "severity": "SEV1_CRITICAL",
-      "affected_service": "loan-disbursal-api",
+      "affected_service": "checkout-api",
       "status": "RESOLVED",
       "causal_commit": "a3f9c12",
       "confidence": 0.94,
@@ -669,10 +669,10 @@ Fetch full RCA for an incident.
   "incident_id": "uuid",
   "root_cause": "string",
   "causal_commit": "SHA",
-  "causal_repo": "lending-core",
+  "causal_repo": "backend-core",
   "five_whys": [...],
   "action_items": { "corrective": [...], "preventive": [...], "systemic": [...] },
-  "impact_analysis": { "affected_users": 1200, "stalled_loans": 340, "revenue_at_risk": "$68,000", "duration_minutes": 8 },
+  "impact_analysis": { "affected_users": 1200, "stalled_transactions": 340, "revenue_at_risk": "$68,000", "duration_minutes": 8 },
   "audit": { "triage_timestamp": "...", "approved_by": "john.doe", ... }
 }
 ```
@@ -710,9 +710,9 @@ Register a new Git repository.
 **Request:**
 ```json
 {
-  "name": "lending-core",
+  "name": "backend-core",
   "provider": "GITHUB",
-  "url": "https://github.com/org/lending-core",
+  "url": "https://github.com/org/backend-core",
   "token": "ghp_xxxx"
 }
 ```
@@ -759,7 +759,7 @@ Called by Kinesis consumer to triage a log batch.
 {
   "classification": "SEV1_CRITICAL | SEV2_HIGH | SEV3_LOW | NORMAL",
   "confidence": 0.94,
-  "affected_service": "loan-disbursal-api",
+  "affected_service": "checkout-api",
   "sanitized_summary": "...",
   "pii_fields_redacted": 3
 }
@@ -994,7 +994,7 @@ curl -X POST http://localhost:8000/internal/incident \
   -d '{
     "incident_id": "test-001",
     "severity": "SEV1_CRITICAL",
-    "affected_service": "loan-disbursal-api",
+    "affected_service": "checkout-api",
     "confidence": 0.94,
     "error_pattern": "NullPointerException in PaymentGateway",
     "error_rate_pct": 12.4,

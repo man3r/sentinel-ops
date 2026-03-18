@@ -1,7 +1,7 @@
 # PRD: SentinelOps v1.0 - The Sovereign SRE Agent
 
 ## 1. Executive Summary
-**SentinelOps** is a VPC-native AI Agent designed for high-stakes lending environments. It proactively monitors system telemetry (Logs/Metrics), correlates error spikes with Git commits, and provides autonomous Root Cause Analysis (RCA) and human-governed mitigation.
+**SentinelOps** is a VPC-native AI Agent designed for high-stakes enterprise environments. It proactively monitors system telemetry (Logs/Metrics), correlates error spikes with Git commits, and provides autonomous Root Cause Analysis (RCA) and human-governed mitigation.
 
 **Primary Goal:** Reduce MTTR from 45 mins to <10 mins by eliminating manual investigation toil and providing a "Senior SRE in a box."
 
@@ -23,12 +23,12 @@
 ### 3.1 Perception Engine (The "Eyes")
 * **Multi-Signal Ingestion:** Real-time ingestion of CloudWatch Logs, Datadog Metrics, and K8s Events via Kinesis Firehose.
 * **Semantic Filtering:** Local Llama 3.2 3B (CPU, inside VPC) must filter out 95% of routine "warnings." Raw logs never leave the VPC boundary.
-* **PII Sanitization:** Before any escalation, strip/mask sensitive fields (customer IDs, loan amounts, PII) to produce a structured incident summary.
-* **Trigger:** Activate the "Reasoning Loop" only when a true business-impacting anomaly (e.g., 5xx spikes on loan-disbursal endpoints) is detected. Only the sanitized summary is forwarded.
+* **PII Sanitization:** Before any escalation, strip/mask sensitive fields (customer IDs, transaction amounts, PII) to produce a structured incident summary.
+* **Trigger:** Activate the "Reasoning Loop" only when a true business-impacting anomaly (e.g., 5xx spikes on critical endpoints) is detected. Only the sanitized summary is forwarded.
 
 ### 3.2 Reasoning Loop (The "Brain")
 * **Context Retrieval:** Query Vector DB for similar past incidents and relevant system runbooks.
-* **Git Correlation:** Automatically fetch the last 5–10 merged PRs **across all repositories registered by the client in the Admin Dashboard**. Supports cross-repo causal linking (e.g., a shared library commit breaking a downstream lending service). Scope is fully configurable per deployment.
+* **Git Correlation:** Automatically fetch the last 5–10 merged PRs **across all repositories registered by the client in the Admin Dashboard**. Supports cross-repo causal linking (e.g., a shared library commit breaking a downstream critical service). Scope is fully configurable per deployment.
 * **Cross-Reference:** Feed `Error Trace` + `Git Diff` + `Historical Context` into Claude 3.5 Sonnet.
 * **Hypothesis Generation:** Output a "Confidence Score" and a "Causal Link" identifying the specific commit and repository responsible.
 
@@ -90,7 +90,7 @@ The agent must generate structured RCAs in JSON for downstream integration:
   "causal_commit": "SHA-256",
   "impact_analysis": {
     "affected_users": "integer",
-    "stalled_loans": "integer",
+    "stalled_transactions": "integer",
     "revenue_at_risk": "string",
     "duration_minutes": "integer"
   },
@@ -175,7 +175,7 @@ All detected anomalies are classified before triggering the Reasoning Loop.
 
 | Severity | Criteria | Response |
 |---|---|---|
-| **SEV-1 — Critical** | Core lending flow down (disbursal, repayment, KYC APIs); >10% 5xx error rate; data integrity risk | Immediately page on-call (PagerDuty), alert CTO/VP Eng via Slack DM, trigger full Reasoning Loop |
+| **SEV-1 — Critical** | Core transaction flow down (auth, payment, core APIs); >10% 5xx error rate; data integrity risk | Immediately page on-call (PagerDuty), alert CTO/VP Eng via Slack DM, trigger full Reasoning Loop |
 | **SEV-2 — High** | Elevated error rate (2–10%); performance degradation >2x baseline; single non-critical service failure | Post to incident Slack channel, trigger Reasoning Loop, SLA: RCA within 3 min |
 | **SEV-3 — Low** | Isolated warnings, transient spikes < 2 min, non-business-impacting anomalies | Log to audit trail, no alert, summarised in daily digest |
 

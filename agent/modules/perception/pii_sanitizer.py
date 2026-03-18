@@ -3,7 +3,7 @@ from typing import Dict, Pattern
 
 class PIISanitizer:
     """
-    Scans raw log tracing and replaces sensitive lending/payment PII
+    Scans raw log tracing and replaces sensitive transaction/payment PII
     with standard masks (e.g. <SSN_REDACTED>) before it leaves the VPC.
     """
     
@@ -13,7 +13,7 @@ class PIISanitizer:
         "CREDIT_CARD": re.compile(r'\b(?:\d{4}[-\s]?){3}\d{4}\b'),
         "EMAIL": re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'),
         "PHONE": re.compile(r'\b\+?\d{1,3}[-\s]?\(?\d{3}\)?[-\s]?\d{3}[-\s]?\d{4}\b'),
-        "LOAN_APP_ID": re.compile(r'\bLA-[A-Z0-9]{8,12}\b'), # Proprietary loan app id format
+        "CUSTOM_APP_ID": re.compile(r'\bAPP-[A-Z0-9]{8,12}\b'), # Proprietary app id format
         "AUTH_BEARER": re.compile(r'Bearer\s+[a-zA-Z0-9\-\._~\+\/]+=*'),
         "AWS_KEY": re.compile(r'(?i)aws_access_key_id\s*[:=]\s*[A-Z0-9]{20}'),
     }

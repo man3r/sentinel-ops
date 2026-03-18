@@ -16,7 +16,7 @@ def generate_mock_payload(sev: str) -> Dict[str, Any]:
         raw_trace = (
             "Exception in thread \"main\" java.sql.SQLException: Connection refused. "
             "User email: john.doe@example.com SSN: 123-45-6789. "
-            "Attempting to process Loan App LA-X987654321 failed. "
+            "Attempting to process transaction APP-X987654321 failed. "
             "AWS_ACCESS_KEY_ID: AKIAIOSFODNN7EXAMPLE"
         )
         sanitized_trace = PIISanitizer.sanitize(raw_trace)
@@ -24,7 +24,7 @@ def generate_mock_payload(sev: str) -> Dict[str, Any]:
         return {
             "incident_id": str(uuid.uuid4()),
             "severity": "SEV1_CRITICAL",
-            "affected_service": "loan-origination-service",
+            "affected_service": "transaction-processing-service",
             "confidence": 0.98,
             "error_pattern": "Database Connection Refused",
             "error_rate_pct": 12.5,
