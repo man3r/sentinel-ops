@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.database import get_db
 from agent.models import AuditLog, Incident
+from agent.modules.audit.logger import append_audit_event
 from agent.modules.reasoning.orchestrator import run_reasoning_loop
 from agent.schemas import IncidentSummary
 
@@ -36,7 +37,8 @@ async def trigger_incident(
     db.add(new_incident)
 
     # ── 2. Immutable Audit Event ───────────────────────────────────────────────
-    audit_event = AuditLog(
+    await append_audit_event(
+        db=db,
         incident_id=new_incident.id,
         event_type="TRIAGE_DECISION",
         actor="PerceptionEngine",
@@ -44,10 +46,9 @@ async def trigger_incident(
             "error_pattern": incident.error_pattern,
             "error_rate_pct": incident.error_rate_pct,
             "sanitized_trace": incident.sanitized_trace,
-        },
-        record_hash="PENDING",  # Full SHA-256 hash chaining implemented in Phase 4
+        }
     )
-    db.add(audit_event)
+    # The commit here finalizes the incident and the audit log lock together
     await db.commit()
 
     # ── 3. Fire Reasoning Loop (background, non-blocking) ─────────────────────

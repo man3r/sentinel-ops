@@ -26,7 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.config import settings
 from agent.database import get_db
-from agent.models import AuditLog, Incident
+from agent.models import Incident
+from agent.modules.audit.logger import append_audit_event
 from agent.modules.mitigation.executor import handle
 from agent.modules.mitigation.guardrails import check
 
@@ -111,14 +112,13 @@ async def slack_actions(request: Request, db: AsyncSession = Depends(get_db)):
 
     if not guardrail.allowed:
         # Write GUARDRAIL_TRIGGERED audit event
-        audit = AuditLog(
+        await append_audit_event(
+            db=db,
             incident_id=incident.id if incident else None,
             event_type="GUARDRAIL_TRIGGERED",
             actor=actor,
-            payload={"action": action_id, "reason": guardrail.reason},
-            record_hash="PENDING",
+            payload={"action": action_id, "reason": guardrail.reason}
         )
-        db.add(audit)
         await db.commit()
         logger.warning(f"Guardrail blocked action '{action_id}': {guardrail.reason}")
         return {

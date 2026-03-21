@@ -153,13 +153,13 @@ ngrok http 8000  # Paste URL → Slack App Interactivity settings
 **Goal:** Every event immutably logged, hash-chained, and archivable to S3 WORM.
 
 ### Deliverables
-- [ ] `logger.py` — append-only audit writer; computes SHA-256 hash chain
-- [ ] `hasher.py` — standalone hash chain verification utility
-- [ ] All modules instrumented: every event type from the audit table logged correctly
-- [ ] `GET /api/audit` endpoint with full filtering (actor, date range, event type)
-- [ ] S3 export job: daily batch export of audit records to `.ndjson` (with Object Lock config in Terraform)
-- [ ] Audit integrity checker: CLI tool that verifies the full hash chain is unbroken
-- [ ] Unit tests: hash chain integrity, verify no gaps in event coverage
+- [x] `logger.py` — append-only audit writer; computes SHA-256 hash chain
+- [x] `hasher.py` — standalone hash chain verification utility
+- [x] All modules instrumented: every event type from the audit table logged correctly
+- [x] `GET /api/audit` endpoint with full filtering (actor, date range, event type)
+- [x] S3 export job: daily batch export of audit records to `.ndjson` (with Object Lock config in Terraform)
+- [x] Audit integrity checker: CLI tool that verifies the full hash chain is unbroken
+- [x] Unit tests: hash chain integrity, verify no gaps in event coverage
 
 ### Test Gate
 ```bash

@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.config import settings
 from agent.database import AsyncSessionLocal
-from agent.models import AuditLog, Incident, RCAReport, Repository
+from agent.models import Incident, RCAReport, Repository
+from agent.modules.audit.logger import append_audit_event
 from agent.modules.reasoning.bedrock_client import generate_rca
 from agent.modules.reasoning.git_correlator import correlate
 from agent.modules.reasoning.vector_retrieval import ensure_index_exists, retrieve_similar
@@ -105,7 +106,8 @@ async def _execute(incident_id: str, db: AsyncSession) -> None:
         incident.status = "ACKNOWLEDGED"
 
         # ── 7. Audit event ─────────────────────────────────────────────────────
-        audit = AuditLog(
+        await append_audit_event(
+            db=db,
             incident_id=incident.id,
             event_type="RCA_GENERATED",
             actor="ReasoningLoop",
@@ -116,10 +118,8 @@ async def _execute(incident_id: str, db: AsyncSession) -> None:
                 "bedrock_tokens": token_count,
                 "rag_hits": len(rag_context),
                 "git_prs_correlated": len(git_prs),
-            },
-            record_hash="PENDING",  # Full hash chaining lands in Phase 4
+            }
         )
-        db.add(audit)
 
         await db.commit()
         logger.info(f"✅ RCA persisted for incident {incident_id} (tokens={token_count})")
@@ -137,7 +137,8 @@ async def _execute(incident_id: str, db: AsyncSession) -> None:
         )
 
         # Write ALERT_SENT audit event
-        alert_audit = AuditLog(
+        await append_audit_event(
+            db=db,
             incident_id=incident.id,
             event_type="ALERT_SENT",
             actor="SentinelOps",
@@ -145,10 +146,8 @@ async def _execute(incident_id: str, db: AsyncSession) -> None:
                 "channel": settings.slack_incident_channel,
                 "slack_ts": slack_ts,
                 "mode": "slack" if slack_ts else "dry_run",
-            },
-            record_hash="PENDING",
+            }
         )
-        db.add(alert_audit)
         await db.commit()
 
     except Exception as e:

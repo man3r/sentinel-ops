@@ -5,6 +5,7 @@ Supports both real Slack API and a dry-run mode when no token is configured.
 import logging
 from typing import Any
 
+import ssl
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
@@ -155,7 +156,11 @@ async def send_incident_alert(
         return None
 
     try:
-        client = WebClient(token=settings.slack_bot_token)
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        client = WebClient(token=settings.slack_bot_token, ssl=ssl_context)
         response = client.chat_postMessage(
             channel=settings.slack_incident_channel,
             text=f"{_get_severity_emoji(severity)} *{severity}* on `{affected_service}` — RCA ready. Review required.",
@@ -165,6 +170,6 @@ async def send_incident_alert(
         logger.info(f"✅ Slack alert posted (ts={ts}) to {settings.slack_incident_channel}")
         return ts
 
-    except SlackApiError as e:
-        logger.error(f"Slack API error: {e.response['error']} — alert not sent.")
+    except Exception as e:
+        logger.error(f"Slack API or network error: {e} — alert not sent.")
         return None
