@@ -91,7 +91,8 @@ async def slack_actions(request: Request, db: AsyncSession = Depends(get_db)):
 
     # Actor = Slack user who clicked the button
     user = payload.get("user", {})
-    actor = user.get("name") or user.get("id", "unknown-slack-user")
+    user_id = user.get("id", "unknown")
+    actor = user.get("name") or user_id
 
     logger.info(f"Slack action received: action={action_id}, incident={incident_id}, actor={actor}")
 
@@ -134,8 +135,28 @@ async def slack_actions(request: Request, db: AsyncSession = Depends(get_db)):
         db=db,
     )
 
+    # ── Update Slack Message (Remove Buttons) ──────────────────────────────────
+    original_message = payload.get("message", {})
+    blocks = original_message.get("blocks", [])
+    
+    # Strip out the 'actions' block so buttons cannot be clicked again
+    new_blocks = [b for b in blocks if b.get("type") != "actions"]
+    
+    # Determine emoji based on action
+    icon = "✅" if action_id == "approve_rollback" else "📋" if action_id == "create_jira" else "🔕"
+    
+    new_blocks.append({
+        "type": "context",
+        "elements": [
+            {
+                "type": "mrkdwn",
+                "text": f"{icon} *Action `{action_id}` executed by* <@{user_id}>",
+            }
+        ]
+    })
+
     return {
-        "response_type": "in_channel",
-        "replace_original": False,
-        "text": result.get("message", "Action completed."),
+        "replace_original": True,
+        "blocks": new_blocks,
+        "text": f"Action '{action_id}' executed by {actor}.",
     }
