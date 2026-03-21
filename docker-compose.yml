@@ -34,5 +34,20 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ── OpenSearch (local vector DB for RAG) ───────────────────────────────
+  opensearch:
+    image: opensearchproject/opensearch:2.18.0
+    container_name: sentinelops-opensearch
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  opensearch_data:

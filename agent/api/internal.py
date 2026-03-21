@@ -1,23 +1,32 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.database import get_db
+from agent.models import AuditLog, Incident
+from agent.modules.reasoning.orchestrator import run_reasoning_loop
 from agent.schemas import IncidentSummary
-from agent.models import Incident, AuditLog
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+SEV_TRIGGERS_REASONING = {"SEV1_CRITICAL", "SEV2_HIGH"}
 
 
 @router.post("/incident", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_incident(
     incident: IncidentSummary,
-    db: AsyncSession = Depends(get_db)
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Triggered by Perception Engine when an anomaly is detected.
-    This endpoint kicks off the Reasoning Loop for SEV1 and SEV2 incidents.
+    Called by the Perception Engine when an anomaly is detected.
+    Persists the incident, writes an audit event, then fires the
+    Reasoning Loop as a non-blocking background task.
     """
-    # 1. Store the Incident
+    # ── 1. Persist the Incident ────────────────────────────────────────────────
     new_incident = Incident(
         id=incident.incident_id,
         severity=incident.severity,
@@ -26,7 +35,7 @@ async def trigger_incident(
     )
     db.add(new_incident)
 
-    # 2. Write an immutable Audit Log
+    # ── 2. Immutable Audit Event ───────────────────────────────────────────────
     audit_event = AuditLog(
         incident_id=new_incident.id,
         event_type="TRIAGE_DECISION",
@@ -36,16 +45,19 @@ async def trigger_incident(
             "error_rate_pct": incident.error_rate_pct,
             "sanitized_trace": incident.sanitized_trace,
         },
-        record_hash="MOCK_HASH_TO_BE_REPLACED", # Will implement hash chaining later
+        record_hash="PENDING",  # Full SHA-256 hash chaining implemented in Phase 4
     )
     db.add(audit_event)
-    
     await db.commit()
-    
-    # 3. Kick off async Reasoning Loop task
-    # TODO: asyncio.create_task(run_reasoning_loop(incident.incident_id))
-    
+
+    # ── 3. Fire Reasoning Loop (background, non-blocking) ─────────────────────
+    reasoning_triggered = incident.severity in SEV_TRIGGERS_REASONING
+    if reasoning_triggered and incident.confidence >= 0.5:
+        background_tasks.add_task(run_reasoning_loop, str(new_incident.id))
+        logger.info(f"Reasoning loop queued for incident {new_incident.id} ({incident.severity})")
+
     return {
-        "incident_id": incident.incident_id,
-        "status": "reasoning_loop_triggered" if incident.severity in ("SEV1_CRITICAL", "SEV2_HIGH") else "logged_only",
+        "incident_id": str(new_incident.id),
+        "severity": incident.severity,
+        "status": "reasoning_loop_triggered" if reasoning_triggered else "logged_only",
     }

@@ -22,6 +22,9 @@ slack-sdk==3.34.0
 # ── HTTP Client ──────────────────────────────────────────────────────────────────
 httpx==0.28.1
 
+# ── OpenSearch (RAG Vector Store) ───────────────────────────────────────────────
+opensearch-py==2.8.0
+
 # ── Security / Auth ───────────────────────────────────────────────────────────────
 python-multipart==0.0.20     # Slack webhook form payloads
 python-jose[cryptography]==3.3.0  # JWT for dashboard auth
