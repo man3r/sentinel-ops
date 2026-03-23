@@ -72,33 +72,57 @@ def _parse_github_owner_repo(url: str) -> str | None:
 
 # ── Main Entry Point ───────────────────────────────────────────────────────────
 
+async def _fetch_local_git_prs() -> list[dict[str, Any]]:
+    """Fallback: Fetch recent commits from local git log if no tokens are configured."""
+    import subprocess
+    try:
+        # Get commits from last 24h
+        cmd = ["git", "log", "--since='24 hours ago'", "--pretty=format:%H|%s|%an|%cI"]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0: return []
+        
+        commits = []
+        for line in res.stdout.split('\n'):
+            if not line: continue
+            sha, title, author, date = line.split('|')
+            commits.append({
+                "number": sha[:8],
+                "title": title,
+                "author": author,
+                "merged_at": date,
+                "url": "#",
+                "repo": "local-repo",
+                "provider": "LOCAL",
+                "sha": sha
+            })
+        return commits
+    except Exception:
+        return []
+
 async def correlate(repos: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Query all registered repos for PRs merged in the last 24h.
-    Repos with no token (empty secret_arn) are skipped gracefully.
-    Falls back to an empty list if GitHub is unreachable.
+    Falls back to local git log if remote credentials are missing.
     """
     all_prs: list[dict[str, Any]] = []
 
+    # 1. Remote scan (if tokens exist)
     for repo in repos:
         provider = repo.get("provider", "GITHUB").upper()
         url = repo.get("url", "")
 
         if provider == "GITHUB":
             owner_repo = _parse_github_owner_repo(url)
-            if not owner_repo:
-                logger.warning(f"Could not parse owner/repo from URL: {url}")
-                continue
+            if not owner_repo: continue
+            
+            token = repo.get("token") or "PLACEHOLDER" # Real token would be from Vault
+            if token != "PLACEHOLDER":
+                prs = await _fetch_github_prs(owner_repo, token)
+                all_prs.extend(prs)
 
-            # Production: fetch token from AWS Secrets Manager using repo["secret_arn"]
-            # Local dev: use a placeholder (unauthenticated = 60 req/hr rate limit)
-            token = "PLACEHOLDER_TOKEN"
-
-            prs = await _fetch_github_prs(owner_repo, token)
-            logger.info(f"Git correlation: {len(prs)} recent PRs from {owner_repo}")
-            all_prs.extend(prs)
-
-        else:
-            logger.info(f"Provider '{provider}' not yet supported (v2 roadmap). Skipping.")
+    # 2. Local fallback (ALWAYS helpful for dev/simulations)
+    if not all_prs:
+        local_commits = await _fetch_local_git_prs()
+        all_prs.extend(local_commits)
 
     return all_prs

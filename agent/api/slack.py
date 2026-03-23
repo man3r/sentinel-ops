@@ -136,13 +136,18 @@ async def slack_actions(request: Request, db: AsyncSession = Depends(get_db)):
     )
 
     # ── Update Slack Message (Remove Buttons) ──────────────────────────────────
+    import httpx
     original_message = payload.get("message", {})
     blocks = original_message.get("blocks", [])
+    channel_id = payload.get("channel", {}).get("id")
+    thread_ts = original_message.get("ts")
+    response_url = payload.get("response_url")
     
-    # Strip out the 'actions' block so buttons cannot be clicked again
+    # Strip out all 'actions' blocks so all buttons (Approve, Jira, Dismiss) are removed
     new_blocks = [b for b in blocks if b.get("type") != "actions"]
     
-    # Determine emoji based on action
+    # Determine emoji and user-friendly name
+    action_name = "Approved Rollback" if action_id == "approve_rollback" else "Dismissed Alert" if action_id == "dismiss" else f"Executed {action_id}"
     icon = "✅" if action_id == "approve_rollback" else "📋" if action_id == "create_jira" else "🔕"
     
     new_blocks.append({
@@ -150,13 +155,43 @@ async def slack_actions(request: Request, db: AsyncSession = Depends(get_db)):
         "elements": [
             {
                 "type": "mrkdwn",
-                "text": f"{icon} *Action `{action_id}` executed by* <@{user_id}>",
+                "text": f"{icon} *{action_name}* by <@{user_id}>",
             }
         ]
     })
 
-    return {
-        "replace_original": True,
-        "blocks": new_blocks,
-        "text": f"Action '{action_id}' executed by {actor}.",
-    }
+    # ── 1. Use response_url to replace the original message (RELIABLE) ────────
+    if response_url:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    response_url,
+                    json={
+                        "replace_original": True,
+                        "blocks": new_blocks,
+                        "text": f"Action '{action_id}' executed by {actor}."
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Failed to replace Slack message via response_url: {e}")
+
+    # ── 2. Post a Thread Reply for Audit ──────────────────────────────────────
+    if settings.slack_bot_token:
+        try:
+            # Reformat action_id for the thread
+            pretty_action = action_id.replace('_', ' ').title()
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    "https://slack.com/api/chat.postMessage",
+                    headers={"Authorization": f"Bearer {settings.slack_bot_token}"},
+                    json={
+                        "channel": channel_id,
+                        "thread_ts": thread_ts,
+                        "text": f"{icon} *Action Triage Update*\nUser <@{user_id}> has officially *{pretty_action}* this incident.\n_Context: Incident resolution logic triggered by actor {actor}._"
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Failed to post Slack thread reply: {e}")
+
+    # Return 200 immediately to Slack to acknowledge receipt
+    return {"status": "ok"}

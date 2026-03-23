@@ -67,7 +67,29 @@ async def handle(
 
 
 async def _approve_rollback(incident: Incident, rca: RCAReport | None, actor: str, db: AsyncSession) -> dict:
-    """Mark incident as resolved; log rollback approval. Actual deploy rollback is Phase 6."""
+    """Execute physical git revert and mark incident as resolved."""
+    import subprocess
+    
+    rollback_status = "Skipped (No causal commit)"
+    git_output = ""
+    
+    if incident.causal_commit:
+        try:
+            # We use --no-edit to avoid interactive editor popups
+            # The agent assumes it is running in the context of the repository it is managing
+            cmd = ["git", "revert", "--no-edit", incident.causal_commit]
+            process = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if process.returncode == 0:
+                rollback_status = "Success"
+                git_output = process.stdout
+            else:
+                rollback_status = f"Failed (Exit {process.returncode})"
+                git_output = process.stderr
+        except Exception as e:
+            rollback_status = "Error"
+            git_output = str(e)
+
     incident.status = "RESOLVED"
 
     await append_audit_event(
@@ -79,17 +101,22 @@ async def _approve_rollback(incident: Incident, rca: RCAReport | None, actor: st
             "action": "approve_rollback",
             "causal_commit": incident.causal_commit,
             "causal_repo": incident.causal_repo,
-            "note": "Rollback command execution wired in Phase 6 (AWS deploy integration).",
+            "rollback_status": rollback_status,
+            "git_output": git_output[:500]
         }
     )
     await db.commit()
 
-    logger.info(f"✅ Rollback approved for incident {incident.id} by {actor}")
+    logger.info(f"✅ Rollback {rollback_status} for incident {incident.id} by {actor}")
+    
+    status_emoji = "✅" if rollback_status == "Success" else "⚠️" if rollback_status == "Skipped (No causal commit)" else "❌"
+    
     return {
         "message": (
-            f"✅ *Rollback approved* by `{actor}`.\n"
-            f"Causal commit `{incident.causal_commit or 'unknown'}` in `{incident.causal_repo or 'unknown'}` "
-            f"flagged for rollback.\n_Incident status → RESOLVED._"
+            f"{status_emoji} *Rollback {rollback_status}* by `{actor}`.\n"
+            f"Target: `{incident.causal_commit or 'none'}`\n"
+            f"```\n{git_output[:200] if git_output else 'No git output.'}\n```\n"
+            f"_Incident status → RESOLVED._"
         )
     }
 

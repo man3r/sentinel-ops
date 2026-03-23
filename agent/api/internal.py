@@ -33,6 +33,8 @@ async def trigger_incident(
         severity=incident.severity,
         affected_service=incident.affected_service,
         confidence=incident.confidence,
+        error_pattern=incident.error_pattern,
+        error_rate_pct=incident.error_rate_pct,
     )
     db.add(new_incident)
 

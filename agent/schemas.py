@@ -32,6 +32,8 @@ class IncidentResponse(BaseModel):
     causal_commit: Optional[str]
     causal_repo: Optional[str]
     confidence: Optional[Decimal]
+    error_pattern: Optional[str] = None
+    error_rate_pct: Optional[Decimal] = None
     created_at: datetime
     resolved_at: Optional[datetime]
 

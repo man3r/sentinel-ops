@@ -38,12 +38,12 @@ def build_incident_blocks(
     commit_str = f"`{causal_commit[:8]}`" if causal_commit else "Not identified"
     repo_str = causal_repo or "Not identified"
 
-    # Five Whys — show first 2 for brevity; full RCA is in the dashboard
     whys_text = ""
     for w in five_whys[:2]:
         whys_text += f"*{w.get('why')}. {w.get('question')}*\n> {w.get('answer')}\n"
     if len(five_whys) > 2:
-        whys_text += f"_...and {len(five_whys) - 2} more. See dashboard for full RCA._"
+        dashboard_link = f"{settings.dashboard_url}/incidents/{incident_id}"
+        whys_text += f"<_...and {len(five_whys)-2} more. *<{dashboard_link}|See dashboard for full RCA.>*_>"
 
     return [
         {

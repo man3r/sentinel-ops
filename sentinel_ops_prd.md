@@ -42,9 +42,10 @@
 ---
 
 ## 4. Admin Dashboard (Governance UI)
+* **Sentinel Observatory:** A strategic operational command center providing real-time visibility into incident velocity, service fragility, and AI performance metrics.
 * **Token Spend Tracker:** Real-time Bedrock cost visibility.
 * **Knowledge Base Manager:** UI for managing RAG source files (PDFs, Markdown, Confluence links).
-* **Repository Manager:** UI to register, authenticate, and manage Git repositories the agent is allowed to query for commit correlation. Supports GitHub, GitLab, and Bitbucket. Scope changes take effect immediately without redeployment.
+* **Integrations Hub:** A centralized registry for AWS, Slack, GitHub, Jira, and Databases. Integrates tightly with Enterprise Secrets Managers (HashiCorp Vault, AWS Secrets Manager) so SentinelOps never stores raw access keys directly. Users input Vault paths/ARNs.
 * **Guardrail Config:** UI to define "No-Go" services/zones (e.g., "Do not touch Payment Gateway") and set confidence thresholds. Guardrails are enforced via **two layers**:
     * **Layer 1 — Hard Code Gate:** Rule is checked at the agent controller level before any action is dispatched. Cannot be overridden by the LLM.
     * **Layer 2 — System Prompt Injection:** The No-Go rule is injected into every Claude prompt to prevent the model from even suggesting an action against a protected zone.
@@ -247,6 +248,7 @@ The agent must remain partially functional even when individual subsystems fail.
 | **Perception Engine Recall** | > 99% | % of real incidents caught (no missed SEV-1s) |
 | **RCA Accuracy** | > 85% | Engineer-validated correct root cause identification |
 | **False Positive Rate** | < 10% | % of alerts that required no action |
+| **AI Reasoning Confidence** | > 90% | Average confidence score of the reasoning loop over time |
 | **Causal Commit Accuracy** | > 80% | Correct commit identified as root cause |
 
 ### 11.3 Operational Metrics
@@ -256,3 +258,60 @@ The agent must remain partially functional even when individual subsystems fail.
 | Bedrock Cost / Incident | < $0.50 |
 | Monthly Infrastructure Cost | < $400 (Perception Engine + Agent ECS) |
 | Audit Log Completeness | 100% — zero dropped events |
+
+# Product Specification: SentinelOps Core Integration Phase (Sovereign SRE)
+
+## 1. Objective
+To transition SentinelOps from a passive observer to an **Agentic SRE** by integrating the "Eyes" (Telemetry) and "Hands" (Execution) within the VPC. This phase enables autonomous detection, investigation, and human-in-the-loop remediation while maintaining 100% data residency.
+
+---
+
+## 2. Technical Architecture
+SentinelOps operates as a **VPC-Native Agent**. All integrations must utilize internal service endpoints and IAM roles (Service Accounts) to ensure sensitive data (logs, code, traces) never egress the private cloud boundary.
+
+---
+
+## 3. Integration Requirements
+
+### A. Telemetry & Observability (The "Eyes")
+* **Prometheus / Managed Prometheus:**
+    * **Permissions:** Read-only (GET/LIST) access to query instant and range vectors.
+    * **Function:** Real-time saturation monitoring (CPU, Memory, Connection Pools).
+* **ELK Stack (Elasticsearch/Kibana):**
+    * **Permissions:** API access to search log indices with metadata filtering.
+    * **Function:** Automated root-cause analysis via log pattern matching (e.g., 5xx errors, stack traces).
+* **VPC Flow Logs / CloudWatch Metrics:**
+    * **Permissions:** Read access to network telemetry.
+    * **Function:** Correlating microservice latency with underlying infrastructure health.
+
+### B. Infrastructure & Code Context (The "Brain")
+* **Kubernetes (K8s) API:**
+    * **Permissions:** `view` (Read) for cluster state; `patch/update` (Write) for specific namespaces.
+    * **Function:** Pod restarts, scaling, and health-check execution.
+* **GitLab / GitHub Enterprise (Self-Hosted):**
+    * **Permissions:** Read-only access to repositories and commit history.
+    * **Function:** Correlating error spikes with the most recent code deployments/diffs.
+* **Terraform / IaC State:**
+    * **Permissions:** Read access to state files (S3/GCS backend).
+    * **Function:** Detecting configuration drift (manual changes made outside of CI/CD).
+
+### C. Governance & Compliance (The "Audit")
+* **Sovereign S3 Bucket (Append-Only):**
+    * **Permissions:** `s3:PutObject` (Write-only).
+    * **Function:** Storing the **Chain-of-Thought (CoT)** reasoning logs for every incident to satisfy RBI/Regulatory audits.
+
+---
+
+## 4. Connectivity & Security Matrix
+
+| Integration      | Protocol   | Authentication Mechanism | Connectivity  |
+| :--------------- | :--------- | :----------------------- | :------------ |
+| **K8s API** | HTTPS/GRPC | Service Account Token    | Internal VPC  |
+| **Prometheus** | HTTP       | Bearer Token / IAM       | Internal VPC  |
+| **S3 Audit Log** | HTTPS      | IAM Role (Instance)      | VPC Endpoint  |
+| **GitLab/GitHub**| HTTPS/SSH  | Personal Access Token    | Internal VPC  |
+
+---
+
+## 5. Success Criteria (KPIs)
+* **MTTA (Mean Time to Acknowledge):**

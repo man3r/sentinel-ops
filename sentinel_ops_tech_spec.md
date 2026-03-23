@@ -240,11 +240,11 @@ sentinel-ops/
 │   │   │   ├── slack_handler.py    # /slack/actions webhook handler
 │   │   │   ├── guardrails.py       # Layer 1 hard gate enforcement
 │   │   │   └── executor.py         # Rollback + Jira actions
-│   │   └── audit/
-│   │       ├── logger.py           # Immutable audit record writer
-│   │       └── hasher.py           # SHA-256 hash chaining
-│   ├── models/                     # SQLAlchemy ORM models
-│   ├── api/                        # FastAPI route handlers
+    ├── api/                        # FastAPI route handlers
+│   │   ├── incidents.py
+│   │   ├── audit.py
+│   │   ├── analytics.py            # Aggregation logic for Observatory
+│   │   └── ...
 │   └── tests/
 ├── perception-engine/              # Llama 3B inference service
 │   ├── server.py                   # FastAPI inference server
@@ -252,8 +252,9 @@ sentinel-ops/
 │   └── Dockerfile
 ├── dashboard/                      # React + Vite frontend
 │   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Incidents.tsx
+│   │   │   ├── IncidentFeed.tsx
+│   │   │   ├── IncidentDetail.tsx
+│   │   │   ├── Observatory.tsx     # Strategic metrics dashboard
 │   │   │   ├── AuditTrail.tsx
 │   │   │   ├── ReasoningTrace.tsx
 │   │   │   ├── Repositories.tsx
@@ -477,6 +478,7 @@ class GuardrailGate:
 
 | Page | Route | Purpose |
 |---|---|---|
+| Observatory | `/observatory` | Primary landing page; strategic metrics (Velocity, MTTR, AI Confidence) |
 | Incident Feed | `/incidents` | Live list of all active + resolved incidents with SEV badges |
 | Incident Detail | `/incidents/:id` | Full RCA, 5 Whys, action items, audit timeline |
 | Reasoning Trace | `/incidents/:id/trace` | Chain-of-Thought debug view |
@@ -724,19 +726,31 @@ Register a new Git repository.
 
 ---
 
-#### `POST /api/guardrails`
-Add a guardrail rule.
+**Response:** `201 Created`
 
-**Request:**
+---
+
+#### `GET /api/analytics/metrics`
+Aggregates incident data for the Observatory dashboard.
+
+**Response:**
 ```json
 {
-  "rule_type": "NO_GO_ZONE",
-  "value": "payment-gateway",
-  "description": "Payment Gateway is off-limits for agent actions"
+  "velocity": [
+    { "timestamp": "ISO-8601", "incidents": 5 }
+  ],
+  "severity_distribution": [
+    { "severity": "SEV1_CRITICAL", "count": 12 }
+  ],
+  "top_services": [
+    { "service": "checkout-api", "count": 8 }
+  ],
+  "confidence_trend": [
+    { "timestamp": "ISO-8601", "confidence": 0.92 }
+  ],
+  "mttr_avg_minutes": 8.4
 }
 ```
-
-**Response:** `201 Created`
 
 ---
 
@@ -1031,4 +1045,41 @@ LLAMA_MODEL_PATH=/models/Llama-3.2-3B-Instruct
 # Feature Flags
 MIN_CONFIDENCE_THRESHOLD=0.75
 REASONING_TIMEOUT_SECONDS=180
+
+# Sovereign SRE (Phase 2)
+PROMETHEUS_URL=http://prometheus-service.monitoring.svc.cluster.local:9090
+ELK_ENDPOINT=http://elasticsearch.logging.svc.cluster.local:9200
+K8S_API_SERVER=https://kubernetes.default.svc.cluster.local
+SOVEREIGN_AUDIT_S3=s3://sentinelops-audit-storage-[account-id]
 ```
+
+---
+
+## 11. Sovereign SRE Integration Phase
+
+### 11.1 Infrastructure & Telemetry Connectivity
+
+SentinelOps must be deployed with a **Service Account** (in K8s) or **IAM Role** (in ECS) that has cross-service connectivity within the VPC.
+
+#### A. Kubernetes (K8s) API Integration
+- **Connector:** `kubernetes-asyncio` library.
+- **Connectivity:** Internal cluster DNS (`https://kubernetes.default.svc`).
+- **Permissions (RBAC):**
+  - **Read:** `pods`, `deployments`, `statefulsets`, `events` (get, list, watch).
+  - **Write:** `deployments/rollback`, `pods/eviction` (patch, update).
+
+#### B. Prometheus / Managed Prometheus
+- **Connector:** Prometheus HTTP API (`/api/v1/query`).
+- **Function:** The Reasoning Loop fetches standard golden signals (Error Rate, Latency, Saturation) for the affected service to enhance the RCA.
+
+#### C. ELK Stack (Log Correlation)
+- **Connector:** Elasticsearch REST API.
+- **Function:** Instead of just triaging sampled logs, the agent performs a deep-search across historical indices to find similar error signatures before LLM reasoning.
+
+### 11.2 Sovereign Audit Chain (S3 Object Lock)
+
+To satisfy regulatory (RBI/GDPR) requirements, the **Chain-of-Thought (CoT)** reasoning logs are streamed to a dedicated S3 bucket.
+
+- **Bucket Policy:** Deny `s3:DeleteObject` and `s3:DeleteBucket`.
+- **Enforcement:** S3 Object Lock in **Compliance Mode** prevents even the root user from tampering with audit records for the defined retention period (5 years).
+- **Format:** Parquet or compressed NDJSON for efficient querying via AWS Athena.

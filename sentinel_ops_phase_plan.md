@@ -178,16 +178,17 @@ curl "http://localhost:8000/api/audit?incident_id=test-001&format=json" -o audit
 **Goal:** Engineers can configure, monitor, and audit SentinelOps via a web UI.
 
 ### Deliverables
-- [ ] React + Vite + Tailwind project scaffolded (`dashboard/`)
+- [x] React + Vite + Tailwind v4 project scaffolded (`dashboard/`)
+- [x] **Incident Feed** (`/incidents`) — live list with SEV badges, status, service name
+- [x] **Sentinel Observatory** (`/observatory`) — Strategic intelligence dashboard (Velocity, MTTR, AI Confidence) [COMPLETED]
+- [x] **Incident Detail** (`/incidents/:id`) — full RCA, 5 Whys, action items, timeline
+- [x] **Audit Trail** (`/audit`) — filterable table, export to NDJSON button
+- [x] **Repository Manager** (`/repos`) — UI retired in favor of global Integrations Hub
+- [x] **Guardrail Config** (`/guardrails`) — add/remove No-Go zones; confidence slider
+- [x] **Knowledge Base** (`/knowledge`) — file upload for RAG source docs
+- [x] **Token Spend** (`/spend`) — chart of Bedrock tokens per incident + monthly total
+- [ ] **Global Integrations Hub** (`/integrations`) — Connect AWS, Slack, VCS, Databases. UI uses Secrets Vault paths instead of raw access keys.
 - [ ] Auth: Cognito-backed login (or mock auth for dev)
-- [ ] **Incident Feed** (`/incidents`) — live list with SEV badges, status, service name
-- [ ] **Incident Detail** (`/incidents/:id`) — full RCA, 5 Whys, action items, timeline
-- [ ] **Reasoning Trace** (`/incidents/:id/trace`) — CoT debug view
-- [ ] **Audit Trail** (`/audit`) — filterable table, export to JSON/PDF button
-- [ ] **Repository Manager** (`/repos`) — add/remove repos; auth token stored via `/api/repositories`
-- [ ] **Guardrail Config** (`/guardrails`) — add/remove No-Go zones; confidence slider
-- [ ] **Knowledge Base** (`/knowledge`) — file upload for RAG source docs
-- [ ] **Token Spend** (`/spend`) — chart of Bedrock tokens per incident + monthly total
 
 ### Test Gate
 - Manually walk through every page; verify data loads correctly from API

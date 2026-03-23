@@ -35,17 +35,53 @@ async def list_incidents(
     return {"total": len(incidents), "items": incidents}
 
 
+@router.get("/{incident_id}", response_model=IncidentResponse)
+async def get_incident(
+    incident_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Fetch details of a specific incident."""
+    result = await db.execute(select(Incident).where(Incident.id == incident_id))
+    incident = result.scalar_one_or_none()
+    
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+        
+    return incident
+
+
 @router.get("/{incident_id}/rca", response_model=RCAResponse)
 async def get_incident_rca(
     incident_id: uuid.UUID,
     db: AsyncSession = Depends(get_db)
 ):
     """Get the full Root Cause Analysis report for a specific incident."""
-    query = select(RCAReport).where(RCAReport.incident_id == incident_id)
+    # We join with the Parent Incident to fetch causal commit/repo info 
+    # which is required by the RCAResponse schema.
+    query = (
+        select(RCAReport, Incident.causal_commit, Incident.causal_repo)
+        .join(Incident, Incident.id == RCAReport.incident_id)
+        .where(RCAReport.incident_id == incident_id)
+    )
     result = await db.execute(query)
-    rca = result.scalar_one_or_none()
+    row = result.first()
     
-    if not rca:
+    if not row:
         raise HTTPException(status_code=404, detail="RCA not found for this incident")
         
+    rca, causal_commit, causal_repo = row
+    # Temporarily set the fields to populate the Pydantic schema
+    rca.causal_commit = causal_commit
+    rca.causal_repo = causal_repo
+    
     return rca
+@router.get("/spend/tokens")
+async def get_token_spend(db: AsyncSession = Depends(get_db)):
+    """Fetch time-series token spend for dashboard."""
+    query = select(RCAReport.created_at, RCAReport.bedrock_tokens).where(RCAReport.bedrock_tokens > 0).order_by(RCAReport.created_at.asc())
+    result = await db.execute(query)
+    
+    return [
+        {"timestamp": rca.created_at.isoformat(), "tokens": rca.bedrock_tokens}
+        for rca in result.all()
+    ]

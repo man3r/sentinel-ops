@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     # ── Agent Behaviour ───────────────────────────────────────────────────────
     min_confidence_threshold: float = 0.75
     reasoning_timeout_seconds: int = 180
+    dashboard_url: str = "http://localhost:5173"
 
 
 @lru_cache

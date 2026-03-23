@@ -20,5 +20,7 @@ class Incident(Base):
     causal_commit: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     causal_repo: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     confidence: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 3), nullable=True)
+    error_pattern: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    error_rate_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

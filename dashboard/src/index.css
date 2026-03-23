@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Fira Code', ui-monospace, monospace;
+  
+  /* SentinelOps Deep Dark Premium Palette */
+  --color-slate-850: #141b2d;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #0b0f19;
+  
+  --color-cyber-cyan: #06b6d4;
+  --color-cyber-purple: #8b5cf6;
+  --color-cyber-green: #10b981;
+  --color-cyber-red: #ef4444;
+  --color-cyber-yellow: #f59e0b;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  
+  body {
+    @apply bg-slate-950 text-slate-300 font-sans antialiased overflow-x-hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-slate-100 font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-slate-900/60 backdrop-blur-md border border-slate-800/60 shadow-xl;
+  }
+  
+  .glass-button {
+    @apply bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur border border-slate-700/50 
+           transition-all duration-200 active:scale-95 text-slate-200 hover:text-white font-medium;
+  }
+  
+  .neon-text-cyan {
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+  }
+  
+  .neon-border-green {
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+  }
+}
+
+/* Custom Scrollbar for sleek UI */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-950;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-800 rounded-full border-2 border-slate-950;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-700;
+}
