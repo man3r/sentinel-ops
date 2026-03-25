@@ -10,6 +10,8 @@ from agent.modules.audit.hasher import compute_hash
 
 logger = logging.getLogger(__name__)
 
+# [SentinelOps Demo] This fix re-introduces the critical .with_for_update() lock.
+
 async def append_audit_event(
     db: AsyncSession,
     event_type: str,
