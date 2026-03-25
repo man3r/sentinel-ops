@@ -10,9 +10,10 @@
 ## 2. Tech Stack & Architecture Constraints
 * **Agent Controller & Backend API:** Python (`asyncio` + FastAPI) for agent orchestration, AI service integration, and ecosystem compatibility. IP protection via private ECR image deployment within VPC.
 * **Frontend:** React (Vite) + Tailwind CSS (Admin/Governance Dashboard).
-* **Inference (Data-Tiered Model):**
-    * **Local (Always-on, VPC-native):** Llama 3.2 3B on CPU (c5.2xlarge, ~$245/mo) for 24/7 log triage. Raw logs **never leave the VPC**.
-    * **Managed (Reasoning):** AWS Bedrock (Claude 3.5 Sonnet) via **VPC PrivateLink** — receives only sanitized incident summaries, never raw logs or PII.
+* **Inference (Tri-Layer Reasoning Strategy):**
+    * **Layer 1 (Performance):** AWS Bedrock (Claude 3.5 Sonnet) via **VPC PrivateLink** for high-complexity incidents.
+    * **Layer 2 (Sovereign Fallback):** Local Ollama (Qwen 2.5 Coder 3B) running on VPC-native CPU/GPU for 100% data residency and offline reasoning.
+    * **Layer 3 (Deterministic):** Rule-based Template Engine for high-confidence, recurring failure patterns.
 * **Database:** PostgreSQL (RDS) for metadata; Amazon OpenSearch Serverless (Vector Engine) for RAG context.
 * **Interface:** Slack for "Human-in-the-loop" interaction and one-click mitigation. *(MS Teams: v2 roadmap)*
 
@@ -28,8 +29,9 @@
 
 ### 3.2 Reasoning Loop (The "Brain")
 * **Context Retrieval:** Query Vector DB for similar past incidents and relevant system runbooks.
-* **Git Correlation:** Automatically fetch the last 5–10 merged PRs **across all repositories registered by the client in the Admin Dashboard**. Supports cross-repo causal linking (e.g., a shared library commit breaking a downstream critical service). Scope is fully configurable per deployment.
-* **Cross-Reference:** Feed `Error Trace` + `Git Diff` + `Historical Context` into Claude 3.5 Sonnet.
+* **Git Correlation:** Automatically fetch the last 5–10 merged PRs across all registered repositories.
+* **Context Injection:** Injects the `sanitized_trace` (raw log telemetry) directly into the LLM prompt, ensuring the model reasons over actual system state rather than just metadata.
+* **Sovereign Fallback:** If Bedrock is unavailable or restricted, the loop automatically escalates to a local Ollama instance for on-premise synthesis.
 * **Hypothesis Generation:** Output a "Confidence Score" and a "Causal Link" identifying the specific commit and repository responsible.
 
 ### 3.3 Mitigation Engine (The "Hands")
@@ -96,6 +98,7 @@ The agent must generate structured RCAs in JSON for downstream integration:
     "duration_minutes": "integer"
   },
   "root_cause": "string",
+  "llm_model": "string (e.g. ollama:qwen2.5-coder:3b)",
 
   "five_whys": [
     { "why": 1, "question": "Why did the incident occur?",              "answer": "string" },

@@ -85,11 +85,12 @@ graph TB
         end
 
         subgraph Agent["Agent Controller (ECS Fargate)"]
-            SEV -->|SEV-1 / SEV-2| RL[Reasoning Loop\nOrchestrator]
+            SEV-1 / SEV-2 -->|Sanitized Trace| RL[Reasoning Loop\nOrchestrator]
             SEV -->|SEV-3| AUDITLOG[(Audit Log\nPostgreSQL)]
             RL --> VDB[(OpenSearch Serverless\nVector DB)]
             RL --> GIT[Git Correlator]
             RL --> BED
+            RL --> OLLAMA[Local Ollama\nQwen 2.5 Coder]
         end
 
         subgraph Storage["Storage Layer"]
@@ -148,8 +149,9 @@ sequenceDiagram
     AC->>GIT: Fetch last 5-10 PRs across registered repos
     GIT-->>AC: Git diff + commit metadata
 
-    AC->>BED: [Error Trace + Git Diff + Historical Context]
-    BED-->>AC: RCA JSON (root cause, 5 Whys, confidence score, commit SHA)
+    AC->>BED: [Error Trace + Sanitized Trace + Git Diff + RAG]
+    BED-->>AC: RCA JSON (root cause, 5 Whys, model=bedrock)
+    Note over AC,BED: Falls back to Local Ollama if Cloud is unavailable or restricted.
 
     AC->>SLACK: Post Block Kit alert (RCA summary + buttons)
     SLACK->>ENG: Notification with [Approve Rollback] [Create Jira]
@@ -505,6 +507,7 @@ CREATE TABLE incidents (
     resolved_at     TIMESTAMPTZ,
     causal_commit   VARCHAR(64),
     causal_repo     VARCHAR(255),
+    sanitized_trace TEXT,
     confidence      DECIMAL(4,3)
 );
 
@@ -516,6 +519,7 @@ CREATE TABLE rca_reports (
     five_whys       JSONB NOT NULL,
     action_items    JSONB NOT NULL,
     impact_analysis JSONB NOT NULL,
+    llm_model       VARCHAR(128),
     bedrock_tokens  INTEGER,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );

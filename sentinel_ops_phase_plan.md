@@ -181,9 +181,10 @@ curl "http://localhost:8000/api/audit?incident_id=test-001&format=json" -o audit
 - [x] React + Vite + Tailwind v4 project scaffolded (`dashboard/`)
 - [x] **Incident Feed** (`/incidents`) — live list with SEV badges, status, service name
 - [x] **Sentinel Observatory** (`/observatory`) — Strategic intelligence dashboard (Velocity, MTTR, AI Confidence) [COMPLETED]
-- [x] **Incident Detail** (`/incidents/:id`) — full RCA, 5 Whys, action items, timeline
+- [x] **Incident Detail** (`/incidents/:id`) — full RCA, 5 Whys, action items, timeline [POLLING + MODEL BADGES INCLUDED]
 - [x] **Audit Trail** (`/audit`) — filterable table, export to NDJSON button
-- [x] **Repository Manager** (`/repos`) — UI retired in favor of global Integrations Hub
+- [x] **Reasoning Loop Fallback** — Local Ollama (Qwen 2.5 Coder) integration for sovereign environments [COMPLETED]
+- [x] **Repository Manager** — UI retired in favor of global Integrations Hub
 - [x] **Guardrail Config** (`/guardrails`) — add/remove No-Go zones; confidence slider
 - [x] **Knowledge Base** (`/knowledge`) — file upload for RAG source docs
 - [x] **Token Spend** (`/spend`) — chart of Bedrock tokens per incident + monthly total
@@ -205,6 +206,7 @@ curl "http://localhost:8000/api/audit?incident_id=test-001&format=json" -o audit
 - [ ] Terraform: ECS Fargate (Agent Controller + Dashboard), multi-AZ
 - [ ] Terraform: EC2 c5.2xlarge for Perception Engine (user-data script: install Python, load Llama 3B)
 - [ ] Terraform: RDS PostgreSQL Multi-AZ
+- [ ] **Phase 6a (NEW): Kubernetes Event Watcher** — VPC-native agent to detect OOMKilled/CrashLoopBackOff events.
 - [ ] Terraform: OpenSearch Serverless (k-NN enabled)
 - [ ] Terraform: S3 bucket with Object Lock (Compliance mode, 5yr retention)
 - [ ] Bedrock VPC PrivateLink endpoint
