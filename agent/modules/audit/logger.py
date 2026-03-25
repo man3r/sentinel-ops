@@ -32,12 +32,11 @@ async def append_audit_event(
 
     incident_id_str = str(incident_id_obj) if incident_id_obj else None
 
-    # Fetch and lock the final row in the chain to prevent concurrent append race conditions
+    # Optimization: removed with_for_update() to reduce DB lock contention
     result = await db.execute(
         select(AuditLog)
         .order_by(AuditLog.id.desc())
         .limit(1)
-        .with_for_update()
     )
     last_log = result.scalar_one_or_none()
     
