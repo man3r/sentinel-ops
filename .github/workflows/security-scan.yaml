@@ -1,0 +1,33 @@
+name: Python Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 1' # Runs every Monday at midnight
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # We install pip-audit to perform the scan
+          pip install pip-audit
+          # If you use a requirements file:
+          # pip install -r requirements.txt 
+
+      - name: Run Security Audit
+        run: |
+          # This scans your environment and fails the build if a vulnerability is found
+          pip-audit

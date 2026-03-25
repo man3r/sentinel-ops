@@ -1,0 +1,14 @@
+repos:
+  - repo: local
+    hooks:
+      - id: export-requirements
+        name: Exporting requirements.txt
+        entry: bash -c 'pip freeze > requirements.txt && git add requirements.txt'
+        language: system
+        pass_filenames: false
+
+  - repo: https://github.com/pypa/pip-audit
+    rev: v0.0.1
+    hooks:
+      - id: pip-audit
+        args: ["--requirement", "requirements.txt"]
