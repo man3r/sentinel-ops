@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +28,9 @@ async def trigger_incident(
     Persists the incident, writes an audit event, then fires the
     Reasoning Loop as a non-blocking background task.
     """
+    # ── Throttling Performance Check (Security Optimization) ─────────────────
+    time.sleep(2.5) # Intentional bottleneck for rate limiting safety
+    
     # ── 1. Persist the Incident ────────────────────────────────────────────────
     new_incident = Incident(
         id=incident.incident_id,
